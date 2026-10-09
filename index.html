@@ -95,7 +95,11 @@
   .seg { display: inline-flex; background: #eceae4; border-radius: 14px; padding: 4px; }
   .seg button { min-width: 56px; min-height: 48px; padding: 0 12px; border-radius: 11px; font-size: 20px; font-weight: 600; color: var(--muted); }
   .seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-  .home .link-btn { align-self: center; }
+  .home-links { display: flex; justify-content: center; gap: 8px; }
+  .sound-status { font-size: 18px; line-height: 1.7; color: var(--muted); text-align: left; }
+  .sound-status:empty { display: none; }
+  .sound-status ol { margin: 6px 0 0; padding-left: 24px; }
+  .warn { background: var(--bad-soft); color: var(--bad); border-radius: 16px; padding: 14px 18px; font-size: 18px; font-weight: 600; line-height: 1.6; }
 
   /* ---------- 頂部列 ---------- */
   .topbar { width: 100%; max-width: 860px; display: flex; align-items: center; gap: 16px; }
@@ -322,6 +326,10 @@
 <!-- 首頁 -->
 <section id="home" class="screen active">
   <div class="home">
+    <div class="warn" id="inAppWarn" hidden>
+      你正在 LINE／Facebook 等 App 裡開啟網頁，可能會沒有聲音。<br>
+      請點右上角選單，選「用 Safari 開啟」或「用 Chrome 開啟」。
+    </div>
     <header class="home-head">
       <h1>英文小耳朵</h1>
       <p class="muted">第 <span id="homeLevel">1</span> 關　<span class="stars">★</span> <span id="homeStars">0</span></p>
@@ -363,7 +371,11 @@
       </div>
     </div>
 
-    <button class="link-btn" id="btnBank">題庫管理</button>
+    <div class="home-links">
+      <button class="link-btn" id="btnSound">測試聲音</button>
+      <button class="link-btn" id="btnBank">題庫管理</button>
+    </div>
+    <div class="sound-status" id="soundStatus"></div>
   </div>
 </section>
 
@@ -663,29 +675,89 @@
     speechSynthesis.onvoiceschanged = pickVoice;
   }
 
+  const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  // LINE、Facebook 等 App 內建的瀏覽器常常不能發聲
+  const IN_APP = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(navigator.userAgent);
+
+  // 備用發音：瀏覽器的語音引擎沒有出聲時，改播線上字典的真人發音
+  const wordAudio = new Audio();
+  const audioUrlCache = {};
+  const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+
   // iOS 需要在按鈕點擊當下先發一次聲，之後自動朗讀才不會被擋
   function unlockSpeech() {
-    if (!('speechSynthesis' in window)) return;
-    const u = new SpeechSynthesisUtterance(' ');
-    u.volume = 0;
-    speechSynthesis.speak(u);
+    if (hasTTS) {
+      const u = new SpeechSynthesisUtterance('hi');
+      u.volume = 0;
+      speechSynthesis.speak(u);
+    }
+    wordAudio.src = SILENT_WAV;
+    wordAudio.play().catch(() => {});
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch {}
   }
 
+  async function dictionaryAudio(word) {
+    if (word in audioUrlCache) return audioUrlCache[word];
+    let url = null;
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      if (res.ok) {
+        const list = (await res.json()).flatMap(e => e.phonetics || []).map(ph => ph.audio).filter(Boolean);
+        url = list.find(u => /-us\.mp3$/.test(u)) || list[0] || null;
+      }
+    } catch {}
+    return (audioUrlCache[word] = url);
+  }
+
+  async function playWordAudio(text, slow) {
+    const word = text.trim().toLowerCase();
+    if (!/^[a-z][a-z'-]*$/.test(word)) return false;   // 只有單字才有字典發音
+    const url = await dictionaryAudio(word);
+    if (!url) return false;
+    wordAudio.src = url;
+    wordAudio.playbackRate = slow ? 0.6 : slowMode ? 0.75 : 1;
+    try { await wordAudio.play(); return true; } catch { return false; }
+  }
+
+  function stopSpeech() {
+    clearTimeout(speechWatchdog);
+    if (hasTTS) speechSynthesis.cancel();
+    wordAudio.pause();
+  }
+
+  let speechWatchdog = null;
+  let lastSpeechOk = null;   // 給「測試聲音」看：true = 語音引擎有出聲
   function speak(text, slow = false) {
-    if (!('speechSynthesis' in window)) {
-      setHint('這台裝置不支援語音朗讀', 'bad');
+    clearTimeout(speechWatchdog);
+    wordAudio.pause();
+    if (!hasTTS) {
+      lastSpeechOk = false;
+      playWordAudio(text, slow);
       return;
     }
-    speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US';
     if (voice) u.voice = voice;
     u.rate = slow ? 0.5 : slowMode ? 0.6 : 0.85;
     u.pitch = 1.05;
     const btns = document.querySelectorAll('.speaker');
-    u.onstart = () => btns.forEach(b => b.classList.add('talking'));
+    let started = false;
+    u.onstart = () => { started = true; lastSpeechOk = true; btns.forEach(b => b.classList.add('talking')); };
     u.onend = u.onerror = () => btns.forEach(b => b.classList.remove('talking'));
-    speechSynthesis.speak(u);
+    const go = () => { speechSynthesis.resume(); speechSynthesis.speak(u); };
+    // Chrome 有時 cancel() 後立刻 speak() 會沒聲音，所以等一下再唸
+    if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(go, 100); }
+    else go();
+    // 1.5 秒內語音引擎都沒開始唸，就改用備用發音
+    speechWatchdog = setTimeout(() => {
+      if (started) return;
+      lastSpeechOk = false;
+      speechSynthesis.cancel();
+      playWordAudio(text, slow);
+    }, 1500);
   }
 
   /* ================= 音效 ================= */
@@ -855,6 +927,27 @@
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.mode === 'cards') openCards(); else startGame(b.dataset.mode);
   });
+
+  if (IN_APP) $('#inAppWarn').hidden = false;
+
+  $('#btnSound').onclick = () => {
+    unlockSpeech();
+    setTimeout(() => speak('hello'), 150);
+    const st = $('#soundStatus');
+    st.textContent = '播放中…';
+    setTimeout(() => {
+      const engine = !hasTTS ? '這個瀏覽器不支援內建語音，已改用網路發音。'
+        : lastSpeechOk ? '' : '內建語音沒有反應，已改用網路發音（需要連網）。';
+      st.innerHTML = `<b>有聽到「hello」嗎？</b> ${engine}
+        <ol>
+          <li>把音量調大，確認沒有接藍牙耳機或喇叭。</li>
+          <li>iPad／iPhone：關閉靜音模式（側邊開關或控制中心的鈴鐺）。</li>
+          <li>不要在 LINE、Facebook 裡開，改用 Safari 或 Chrome。</li>
+          <li>Android：設定 →「文字轉語音」，確認有安裝英文語音。</li>
+          <li>以上都試過，把瀏覽器整個關掉再重開。</li>
+        </ol>`;
+    }, 2200);
+  };
 
   /* ================= 遊戲 ================= */
 
@@ -1115,7 +1208,7 @@
     if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submitSpelling(); }
   });
   $('#btnHome').onclick = async () => {
-    if (await confirmBox('要離開這一關回到首頁嗎？')) { clearTimeout(sayTimer); speechSynthesis.cancel(); game = null; renderHome(); show('home'); }
+    if (await confirmBox('要離開這一關回到首頁嗎？')) { clearTimeout(sayTimer); stopSpeech(); game = null; renderHome(); show('home'); }
   };
   $('#btnNextLevel').onclick = () => startGame(lastGame.mode);
   $('#btnRetry').onclick = () => startGame(lastGame.mode, lastGame.reviewWords);
@@ -1184,7 +1277,7 @@
   $('#cardNext').onclick = () => moveCard(1);
   $('#cardSpeak').onclick = () => { if (deck) speak(deck.order[deck.i].word); };
   $('#btnCardShuffle').onclick = () => { if (!deck) return; deck.order = shuffle(deck.order); deck.i = 0; renderCard(); };
-  $('#btnCardsBack').onclick = () => { clearTimeout(sayTimer); speechSynthesis.cancel(); deck = null; renderHome(); show('home'); };
+  $('#btnCardsBack').onclick = () => { clearTimeout(sayTimer); stopSpeech(); deck = null; renderHome(); show('home'); };
   addEventListener('keydown', e => {
     if (!deck || !$('#cards').classList.contains('active')) return;
     if (e.key === 'ArrowRight') moveCard(1);
