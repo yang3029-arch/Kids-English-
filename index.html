@@ -52,6 +52,8 @@
   .big-btn.green:active { box-shadow: 0 2px 0 #2a9a62; }
   .big-btn.gray { background: #b9b7c9; box-shadow: 0 8px 0 #8f8da3; }
   .big-btn.gray:active { box-shadow: 0 2px 0 #8f8da3; }
+  .big-btn.purple { background: #9b6bff; box-shadow: 0 8px 0 #7448d6; }
+  .big-btn.purple:active { box-shadow: 0 2px 0 #7448d6; }
   .big-btn.small { min-height: 64px; font-size: 24px; padding: 0 28px; }
 
   /* ---------- 首頁 ---------- */
@@ -66,6 +68,12 @@
   }
   .home-btns { display: flex; flex-direction: column; gap: 22px; align-items: center; }
   .home-btns .big-btn { width: min(420px, 90vw); }
+  .settings { display: flex; flex-direction: column; gap: 18px; align-items: center; }
+  .check {
+    display: inline-flex; align-items: center; gap: 14px; min-height: 68px; padding: 0 28px;
+    background: #fff; border-radius: 999px; box-shadow: var(--shadow); font-size: 26px; font-weight: 800; cursor: pointer;
+  }
+  .check input { width: 36px; height: 36px; accent-color: var(--blue); margin: 0; }
   .speed-row { display: flex; gap: 10px; align-items: center; justify-content: center; font-size: 22px; flex-wrap: wrap; }
   .seg { display: inline-flex; background: #fff; border-radius: 999px; padding: 6px; box-shadow: var(--shadow); }
   .seg button { min-height: 56px; padding: 0 22px; border-radius: 999px; font-size: 22px; font-weight: 700; background: transparent; }
@@ -125,12 +133,46 @@
   .choice.wrong { border-color: var(--red); animation: shake .45s; opacity: .45; }
   .choice.wrong .word-tag { display: block; color: var(--red); }
   .choice.dim { opacity: .35; }
+  .choice.reveal { border-color: var(--green); }
+  .choice.reveal .word-tag { display: block; color: var(--green); }
+  .choice.reveal .mark { display: block; }
   .choice .mark { position: absolute; top: 8px; right: 12px; font-size: 52px; display: none; }
   .choice.correct .mark, .choice.wrong .mark { display: block; }
   .choice.loading::after {
     content: ""; width: 56px; height: 56px; border-radius: 50%;
     border: 7px solid #eee; border-top-color: var(--blue); animation: spin 1s linear infinite;
   }
+  /* 聽音選字 */
+  .choices.words .choice { aspect-ratio: auto; min-height: 130px; }
+  .choices.words .word-tag { display: none !important; }
+  .choice .word-big { font-size: clamp(40px, 8vw, 68px); font-weight: 900; letter-spacing: 2px; pointer-events: none; }
+
+  /* 聽音拼字 */
+  .spell { display: none; width: 100%; max-width: 640px; flex-direction: column; align-items: center; gap: 18px; }
+  .spell.show { display: flex; }
+  .spell-input {
+    width: 100%; min-height: 110px; text-align: center; font: inherit; font-size: 60px; font-weight: 900;
+    letter-spacing: 6px; border: 6px solid #ddd; border-radius: 30px; background: #fff; color: var(--ink);
+    box-shadow: 0 8px 0 #d8d3c4; user-select: text; -webkit-user-select: text;
+  }
+  .spell-input::placeholder { font-size: 28px; letter-spacing: 0; color: #bbb; font-weight: 700; }
+  .spell-input:focus { outline: none; border-color: var(--blue); }
+  .spell-input.right { border-color: var(--green); animation: pop .5s; }
+  .spell-input.wrong { border-color: var(--red); animation: shake .45s; }
+  .spell-feedback { font-size: 30px; font-weight: 800; text-align: center; line-height: 1.6; min-height: 48px; }
+  .spell-feedback .ans { font-size: 52px; letter-spacing: 4px; }
+  .spell-feedback .ok { color: var(--green); }
+  .spell-feedback .bad { color: var(--red); text-decoration: underline wavy; }
+
+  /* 結算：答錯的單字 */
+  .wrong-box { width: 100%; display: none; }
+  .wrong-title { font-size: 22px; font-weight: 800; color: var(--red); margin-bottom: 10px; }
+  .wrong-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .wrong-list button {
+    min-height: 60px; padding: 0 22px; border-radius: 999px; font-size: 30px; font-weight: 900;
+    background: #ffe9eb; color: var(--red); box-shadow: 0 4px 0 #f5c2c7;
+  }
+
   .next-wrap { margin-top: 26px; min-height: 92px; }
 
   /* ---------- 結算 ---------- */
@@ -223,23 +265,29 @@
 <section id="home" class="screen active">
   <div class="logo">🐥</div>
   <h1>英文小耳朵</h1>
-  <div class="subtitle">聽英文，選出正確的圖片！</div>
+  <div class="subtitle">聽英文，挑一種玩法開始吧！</div>
   <div class="stat-row">
     <div class="pill">第 <span id="homeLevel">1</span> 關</div>
     <div class="pill">⭐ <span id="homeStars">0</span></div>
   </div>
-  <div class="home-btns">
-    <button class="big-btn" id="btnStart">▶ 開始遊戲</button>
-    <button class="big-btn blue" id="btnBank">📷 題庫管理</button>
+  <div class="home-btns" id="modeBtns">
+    <button class="big-btn" data-mode="pic">🖼️ 聽音選圖</button>
+    <button class="big-btn purple" data-mode="word">🔤 聽音選字</button>
+    <button class="big-btn green" data-mode="spell">⌨️ 聽音拼字</button>
   </div>
-  <div class="speed-row">
-    <span>唸的速度：</span>
-    <div class="seg" id="speedSeg">
-      <button data-rate="0.6">🐢 慢</button>
-      <button data-rate="0.85">🐰 普通</button>
-      <button data-rate="1">🚀 快</button>
+  <div class="settings">
+    <label class="check"><input type="checkbox" id="slowChk"> 🐢 慢速發音</label>
+    <div class="speed-row">
+      <span>題數：</span>
+      <div class="seg" id="countSeg">
+        <button data-n="5">5</button>
+        <button data-n="10">10</button>
+        <button data-n="15">15</button>
+        <button data-n="20">20</button>
+      </div>
     </div>
   </div>
+  <button class="big-btn blue" id="btnBank">📷 題庫管理</button>
 </section>
 
 <!-- 遊戲 -->
@@ -247,7 +295,7 @@
   <div class="topbar">
     <button class="icon-btn" id="btnHome" aria-label="回首頁">🏠</button>
     <div class="progress-wrap">
-      <div class="progress-label">第 <span id="gLevel">1</span> 關 · <span id="gQ">1</span> / 10 題</div>
+      <div class="progress-label"><span id="gLevel">第 1 關</span> · <span id="gQ">1</span> / <span id="gTotal">10</span> 題</div>
       <div class="progress"><div id="gBar"></div></div>
     </div>
     <div class="star-count" id="gStars">⭐ 0</div>
@@ -262,6 +310,12 @@
   </div>
 
   <div class="choices" id="choices"></div>
+  <div class="spell" id="spell">
+    <input class="spell-input" id="spellInput" type="text" autocomplete="off" autocorrect="off"
+           autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="打出聽到的單字">
+    <button class="big-btn green small" id="btnSpellOk">確認 ✓（Enter）</button>
+    <div class="spell-feedback" id="spellFeedback"></div>
+  </div>
   <div class="next-wrap"><button class="big-btn green" id="btnNext" style="display:none">下一題 ➜</button></div>
 </section>
 
@@ -271,7 +325,12 @@
     <div class="result-title" id="rTitle">過關了！</div>
     <div class="result-stars" id="rStars"></div>
     <div class="result-msg" id="rMsg"></div>
+    <div class="wrong-box" id="wrongBox">
+      <div class="wrong-title">答錯的單字（點一下聽發音）</div>
+      <div class="wrong-list" id="wrongList"></div>
+    </div>
     <div class="result-btns">
+      <button class="big-btn" id="btnReview">📝 只練答錯的</button>
       <button class="big-btn green" id="btnNextLevel">下一關 ➜</button>
       <button class="big-btn blue" id="btnRetry">🔁 再玩一次</button>
       <button class="big-btn gray" id="btnResultHome">🏠 回首頁</button>
@@ -380,7 +439,6 @@
   };
 
   const TWEMOJI = code => `https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${code}.svg`;
-  const QUESTIONS_PER_LEVEL = 10;
 
   /* ================= 儲存 ================= */
 
@@ -399,7 +457,8 @@
   let imgCache = store.get('imgCache', {});   // word -> { list: [url...], i: 0 }
   let totalStars = store.get('stars', 0);
   let level = store.get('level', 1);
-  let rate = store.get('rate', 0.85);
+  let slowMode = store.get('slow', false);
+  let qCount = store.get('qCount', 10);
 
   const saveBank = () => store.set('bank', bank);
   const saveCache = () => store.set('imgCache', imgCache);
@@ -499,7 +558,7 @@
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US';
     if (voice) u.voice = voice;
-    u.rate = slow ? 0.5 : rate;
+    u.rate = slow ? 0.5 : slowMode ? 0.6 : 0.85;
     u.pitch = 1.05;
     const btn = $('#btnSpeak');
     u.onstart = () => btn.classList.add('talking');
@@ -621,36 +680,62 @@
   function renderHome() {
     $('#homeLevel').textContent = level;
     $('#homeStars').textContent = totalStars;
-    document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', +b.dataset.rate === rate));
+    $('#slowChk').checked = slowMode;
+    document.querySelectorAll('#countSeg button').forEach(b => b.classList.toggle('on', +b.dataset.n === qCount));
   }
-  $('#speedSeg').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    rate = +b.dataset.rate; store.set('rate', rate); renderHome();
+  $('#slowChk').addEventListener('change', e => {
+    slowMode = e.target.checked; store.set('slow', slowMode);
     speak('Hello!');
+  });
+  $('#countSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    qCount = +b.dataset.n; store.set('qCount', qCount); renderHome();
+  });
+  $('#modeBtns').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (b) startGame(b.dataset.mode);
   });
 
   /* ================= 遊戲 ================= */
 
-  let game = null;
+  const MODES = {
+    pic:   { hint: '按喇叭聽單字，再選出圖片！', min: 4 },
+    word:  { hint: '按喇叭聽單字，再選出正確的字！', min: 4 },
+    spell: { hint: '聽完把單字打出來，按 Enter 確認！', min: 1 },
+  };
 
-  function startLevel() {
-    if (bank.length < 4) {
-      confirmBox('題庫至少要有 4 個單字才能玩喔！要去題庫管理加單字嗎？').then(ok => { if (ok) openBank(); });
+  let game = null;
+  let lastGame = null;   // 記住上一局的設定，給「再玩一次」「只練答錯的」用
+
+  // reviewWords：只練這些字（複習答錯的）；沒給就從題庫隨機出 qCount 題
+  function startGame(mode, reviewWords = null) {
+    if (bank.length < MODES[mode].min) {
+      confirmBox(`題庫至少要有 ${MODES[mode].min} 個單字才能玩這個模式喔！要去題庫管理加單字嗎？`)
+        .then(ok => { if (ok) openBank(); });
       return;
     }
-    // 10 題：先把題庫洗牌，不夠 10 題就再洗一輪接上（避免連續重複）
-    let order = [];
-    while (order.length < QUESTIONS_PER_LEVEL) {
-      let next = shuffle(bank);
-      if (order.length && next[0].word === order[order.length - 1].word) next.push(next.shift());
-      order = order.concat(next);
+    let order;
+    if (reviewWords) {
+      order = shuffle(reviewWords.map(w => bank.find(b => b.word === w) || { word: w }));
+    } else {
+      // 先把題庫洗牌，不夠題數就再洗一輪接上（避免連續重複）
+      order = [];
+      while (order.length < qCount) {
+        const next = shuffle(bank);
+        if (order.length && next[0].word === order[order.length - 1].word) next.push(next.shift());
+        order = order.concat(next);
+      }
+      order = order.slice(0, qCount);
     }
     unlockSpeech();
-    game = { order: order.slice(0, QUESTIONS_PER_LEVEL), idx: 0, stars: 0, streak: 0, answered: false, firstTry: true };
-    $('#gLevel').textContent = level;
+    lastGame = { mode, reviewWords };
+    game = { mode, review: !!reviewWords, order, total: order.length, idx: 0, stars: 0, streak: 0, answered: false, wrong: [] };
+    $('#gLevel').textContent = game.review ? '📝 複習' : `第 ${level} 關`;
+    $('#gTotal').textContent = game.total;
+    $('#choices').style.display = mode === 'spell' ? 'none' : '';
+    $('#choices').classList.toggle('words', mode === 'word');
+    $('#spell').classList.toggle('show', mode === 'spell');
     show('game');
-    // 預先載入圖片
-    bank.forEach(item => getImageList(item));
+    if (mode === 'pic') bank.forEach(item => getImageList(item));   // 預先載入圖片
     nextQuestion();
   }
 
@@ -658,74 +743,127 @@
     const g = game;
     const target = g.order[g.idx];
     g.answered = false;
-    g.firstTry = true;
     $('#btnNext').style.display = 'none';
     $('#gQ').textContent = g.idx + 1;
-    $('#gBar').style.width = (g.idx / QUESTIONS_PER_LEVEL * 100) + '%';
+    $('#gBar').style.width = (g.idx / g.total * 100) + '%';
     $('#gStars').textContent = '⭐ ' + g.stars;
-    setHint('按喇叭聽單字，再選出圖片！');
+    setHint(MODES[g.mode].hint);
 
-    const others = shuffle(bank.filter(b => b.word !== target.word)).slice(0, 3);
-    const options = shuffle([target, ...others]);
-
-    const box = $('#choices');
-    box.innerHTML = '';
-    options.forEach(opt => {
-      const btn = document.createElement('button');
-      btn.className = 'choice loading';
-      btn.dataset.word = opt.word;
-      btn.innerHTML = `<span class="word-tag"></span><span class="mark"></span>`;
-      btn.querySelector('.word-tag').textContent = opt.word;
-      btn.addEventListener('click', () => choose(btn, opt.word === target.word));
-      box.appendChild(btn);
-      getImageList(opt).then(list => renderPicture(btn, list, opt.word)).then(() => btn.classList.remove('loading'));
-    });
-
+    if (g.mode === 'spell') {
+      const input = $('#spellInput');
+      input.value = '';
+      input.className = 'spell-input';
+      input.readOnly = false;
+      $('#spellFeedback').innerHTML = '';
+      $('#btnSpellOk').style.display = '';
+      input.focus();
+    } else {
+      const others = shuffle(bank.filter(b => b.word !== target.word)).slice(0, 3);
+      const options = shuffle([target, ...others]);
+      const box = $('#choices');
+      box.innerHTML = '';
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'choice';
+        btn.dataset.word = opt.word;
+        btn.innerHTML = `<span class="word-tag"></span><span class="mark"></span>`;
+        btn.querySelector('.word-tag').textContent = opt.word;
+        btn.addEventListener('click', () => chooseOption(btn));
+        box.appendChild(btn);
+        if (g.mode === 'word') {
+          const w = document.createElement('span');
+          w.className = 'word-big';
+          w.textContent = opt.word;
+          btn.prepend(w);
+        } else {
+          btn.classList.add('loading');
+          getImageList(opt).then(list => renderPicture(btn, list, opt.word)).then(() => btn.classList.remove('loading'));
+        }
+      });
+    }
     sayLater(target.word, 450);
   }
 
-  function choose(btn, isRight) {
+  function chooseOption(btn) {
     const g = game;
-    if (!g || g.answered || btn.classList.contains('wrong')) return;
+    if (!g || g.answered) return;
     const target = g.order[g.idx];
+    const right = btn.dataset.word === target.word;
+    btn.classList.add(right ? 'correct' : 'wrong');
+    btn.querySelector('.mark').textContent = right ? '✅' : '❌';
+    document.querySelectorAll('.choice').forEach(c => {
+      if (c === btn) return;
+      if (!right && c.dataset.word === target.word) { c.classList.add('reveal'); c.querySelector('.mark').textContent = '👉'; }
+      else c.classList.add('dim');
+    });
+    answered(right, btn);
+  }
 
-    if (isRight) {
-      g.answered = true;
-      btn.classList.add('correct');
-      btn.querySelector('.mark').textContent = '✅';
-      document.querySelectorAll('.choice').forEach(c => { if (c !== btn && !c.classList.contains('wrong')) c.classList.add('dim'); });
-      const r = btn.getBoundingClientRect();
+  function submitSpelling() {
+    const g = game;
+    if (!g || g.mode !== 'spell') return;
+    if (g.answered) return goNext();             // 答完後再按 Enter = 下一題
+    const input = $('#spellInput');
+    const typed = input.value.trim().toLowerCase();
+    if (!typed) { input.focus(); return; }
+    const target = g.order[g.idx].word;
+    const right = typed === target.toLowerCase();
+    input.classList.add(right ? 'right' : 'wrong');
+    input.readOnly = true;
+    $('#btnSpellOk').style.display = 'none';
+    const fb = $('#spellFeedback');
+    fb.innerHTML = '';
+    if (right) {
+      fb.innerHTML = '<span class="ok">✅ 拼對了！</span>';
+    } else {
+      // 逐字母比對，拼錯的字母標紅
+      const line = document.createElement('div');
+      line.append('你打的：');
+      [...typed].forEach((ch, i) => {
+        const sp = document.createElement('span');
+        sp.className = ch === target[i] ? 'ok' : 'bad';
+        sp.textContent = ch;
+        line.appendChild(sp);
+      });
+      const ans = document.createElement('div');
+      ans.innerHTML = '正確答案：<span class="ans ok"></span>';
+      ans.querySelector('.ans').textContent = target;
+      fb.append(line, ans);
+    }
+    answered(right, input);
+    input.focus();   // 讓 Enter 可以直接進下一題
+  }
 
-      if (g.firstTry) {
-        g.stars++; g.streak++;
-        totalStars++; store.set('stars', totalStars);
-        flyStar(btn);
-        setTimeout(() => { $('#gStars').textContent = '⭐ ' + g.stars; }, 700);
-        if (g.streak >= 3) {
-          sfx.combo();
-          showBanner(g.streak >= 10 ? `🏆 全部答對！太厲害了！` : `🔥 連續答對 ${g.streak} 題！`);
-          confetti(innerWidth / 2, innerHeight * 0.4, 70 + g.streak * 10, 1.3);
-        } else {
-          sfx.good();
-          confetti(r.left + r.width / 2, r.top + r.height / 2, 35);
-        }
-        setHint(['答對了！好棒！🎉', '太厲害了！👍', '完全正確！🌟', '你好聰明！💯'][Math.random() * 4 | 0], 'good');
+  // 共用的答題回饋
+  function answered(right, el) {
+    const g = game;
+    const target = g.order[g.idx];
+    g.answered = true;
+    if (right) {
+      g.stars++; g.streak++;
+      totalStars++; store.set('stars', totalStars);
+      flyStar(el);
+      setTimeout(() => { if (game === g) $('#gStars').textContent = '⭐ ' + g.stars; }, 700);
+      if (g.streak >= 3) {
+        sfx.combo();
+        showBanner(g.streak === g.total ? '🏆 全部答對！太厲害了！' : `🔥 連續答對 ${g.streak} 題！`);
+        confetti(innerWidth / 2, innerHeight * 0.4, 70 + Math.min(g.streak, 10) * 10, 1.3);
       } else {
         sfx.good();
-        setHint(`對了！是 ${target.word}！`, 'good');
+        const r = el.getBoundingClientRect();
+        confetti(r.left + r.width / 2, r.top + r.height / 2, 35);
       }
+      setHint(['答對了！好棒！🎉', '太厲害了！👍', '完全正確！🌟', '你好聰明！💯'][Math.random() * 4 | 0], 'good');
       sayLater(target.word, 350);
-      $('#btnNext').textContent = g.idx + 1 >= QUESTIONS_PER_LEVEL ? '看成績 🏁' : '下一題 ➜';
-      $('#btnNext').style.display = 'inline-flex';
     } else {
-      g.firstTry = false;
       g.streak = 0;
-      btn.classList.add('wrong');
-      btn.querySelector('.mark').textContent = '❌';
+      if (!g.wrong.includes(target.word)) g.wrong.push(target.word);
       sfx.bad();
-      setHint('再聽一次，試試看！💪', 'bad');
-      sayLater(target.word, 600);
+      setHint(`正確答案是「${target.word}」，再聽一次 👂`, 'bad');
+      sayLater(target.word, 600);   // 答錯再唸一次正確答案
     }
+    $('#btnNext').textContent = g.idx + 1 >= g.total ? '看成績 🏁' : '下一題 ➜';
+    $('#btnNext').style.display = 'inline-flex';
   }
 
   // 延遲朗讀：如果期間已換題就不唸，避免唸到上一題的字
@@ -737,49 +875,78 @@
 
   function goNext() {
     clearTimeout(sayTimer);
-    if (!game) return;
+    if (!game || !game.answered) return;
     game.idx++;
-    if (game.idx >= QUESTIONS_PER_LEVEL) finishLevel();
+    if (game.idx >= game.total) finishGame();
     else nextQuestion();
   }
 
-  function finishLevel() {
-    const s = game.stars;
+  function finishGame() {
+    const g = game;
+    const s = g.stars, total = g.total;
+    const need = Math.ceil(total * 0.6);
+    const passed = s >= need;
     $('#banner').classList.remove('show');
     $('#gBar').style.width = '100%';
+    $('#spellInput').blur();
+
     const rs = $('#rStars');
     rs.innerHTML = '';
-    for (let i = 0; i < QUESTIONS_PER_LEVEL; i++) {
+    for (let i = 0; i < total; i++) {
       const sp = document.createElement('span');
       sp.textContent = '⭐';
-      if (i < s) { sp.className = 'on'; sp.style.animationDelay = (i * 0.12) + 's'; }
+      if (i < s) { sp.className = 'on'; sp.style.animationDelay = (i * 0.1) + 's'; }
       rs.appendChild(sp);
     }
-    const passed = s >= 6;
-    $('#rTitle').textContent = s === 10 ? '🏆 滿分！' : passed ? `🎉 第 ${level} 關過關！` : '加油！再試一次';
-    $('#rMsg').textContent = `這一關拿到 ${s} 顆星星（總共 ${totalStars} 顆）` + (passed ? '' : '，答對 6 題就能過關喔！');
-    $('#btnNextLevel').style.display = passed ? '' : 'none';
-    if (passed) { level++; store.set('level', level); }
+
+    if (g.review) {
+      $('#rTitle').textContent = s === total ? '🏆 全部練會了！' : '📝 複習完成！';
+    } else {
+      $('#rTitle').textContent = s === total ? '🏆 滿分！' : passed ? `🎉 第 ${level} 關過關！` : '加油！再試一次';
+    }
+    $('#rMsg').textContent = `答對 ${s} / ${total} 題，拿到 ${s} 顆星星（總共 ${totalStars} 顆）`
+      + (!g.review && !passed ? `，答對 ${need} 題就能過關喔！` : '');
+
+    const list = $('#wrongList');
+    list.innerHTML = '';
+    g.wrong.forEach(w => {
+      const b = document.createElement('button');
+      b.textContent = '🔊 ' + w;
+      b.onclick = () => speak(w);
+      list.appendChild(b);
+    });
+    $('#wrongBox').style.display = g.wrong.length ? 'block' : 'none';
+    $('#btnReview').style.display = g.wrong.length ? '' : 'none';
+    $('#btnReview').textContent = `📝 只練答錯的（${g.wrong.length} 個）`;
+    $('#btnReview').onclick = () => startGame(g.mode, g.wrong.slice());
+    $('#btnNextLevel').style.display = passed && !g.review ? '' : 'none';
+    $('#btnRetry').textContent = g.review ? '🔁 再複習一次' : '🔁 再玩一次';
+
+    if (passed && !g.review) { level++; store.set('level', level); }
     game = null;
     show('result');
     if (passed) {
       sfx.win();
-      speak(s === 10 ? 'Perfect! Great job!' : 'Great job!');
+      speak(s === total ? 'Perfect! Great job!' : 'Great job!');
       [0, 400, 800].forEach(t => setTimeout(() => confetti(innerWidth * (0.25 + Math.random() * 0.5), innerHeight * 0.3, 90, 1.4), t));
     } else {
       speak('Good try!');
     }
   }
 
-  $('#btnStart').onclick = startLevel;
-  $('#btnSpeak').onclick = () => game && speak(game.order[game.idx].word);
-  $('#btnSlow').onclick = () => game && speak(game.order[game.idx].word, true);
+  const currentWord = () => game && game.order[game.idx].word;
+  $('#btnSpeak').onclick = () => { if (game) speak(currentWord()); };
+  $('#btnSlow').onclick = () => { if (game) speak(currentWord(), true); };
   $('#btnNext').onclick = goNext;
+  $('#btnSpellOk').onclick = submitSpelling;
+  $('#spellInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submitSpelling(); }
+  });
   $('#btnHome').onclick = async () => {
     if (await confirmBox('要離開這一關回到首頁嗎？')) { clearTimeout(sayTimer); speechSynthesis.cancel(); game = null; renderHome(); show('home'); }
   };
-  $('#btnNextLevel').onclick = startLevel;
-  $('#btnRetry').onclick = startLevel;
+  $('#btnNextLevel').onclick = () => startGame(lastGame.mode);
+  $('#btnRetry').onclick = () => startGame(lastGame.mode, lastGame.reviewWords);
   $('#btnResultHome').onclick = () => { renderHome(); show('home'); };
 
   /* ================= 題庫管理 ================= */
