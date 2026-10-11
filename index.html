@@ -170,18 +170,29 @@
   .choice.dim { opacity: .35; }
 
   .spell { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .spell-input {
-    width: 100%; min-height: 96px; text-align: center; font-family: var(--en); font-size: calc(48px * var(--fs)); font-weight: 800;
-    letter-spacing: 5px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--bg); color: var(--ink);
-    user-select: text; -webkit-user-select: text; transition: border-color .2s, background .2s;
+  .slots { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; min-height: 84px; }
+  .slot {
+    width: calc(64px * var(--fs)); height: calc(80px * var(--fs)); border-radius: 14px; background: var(--bg);
+    border: 1.5px dashed #cfcfca; display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--en); font-weight: 800; font-size: calc(46px * var(--fs)); color: var(--ink);
   }
-  .spell-input::placeholder { font-family: inherit; font-size: 22px; letter-spacing: 0; color: #c2c2c2; font-weight: 500; }
-  .spell-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
-  .spell-input.right { border-color: var(--ok); background: var(--ok-soft); animation: pop .45s; }
-  .spell-input.wrong { border-color: var(--bad); background: var(--bad-soft); animation: shake .4s; }
+  .slot.filled { background: var(--surface); border: 1.5px solid var(--line); border-bottom: 3px solid var(--accent); }
+  .slot.next { border-color: var(--accent); }
+  .slots.right .slot { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+  .slots.right { animation: pop .45s; }
+  .slots.wrong { animation: shake .4s; }
+  .slots.wrong .slot.bad { border-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
+  .tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 6px; }
+  .tile {
+    width: calc(72px * var(--fs)); height: calc(72px * var(--fs)); border-radius: 18px; background: var(--surface);
+    border: 1.5px solid var(--line); border-bottom-width: 4px; font-family: var(--en); font-weight: 800;
+    font-size: calc(40px * var(--fs)); color: var(--ink); transition: opacity .15s, transform .1s;
+  }
+  .tile:disabled { opacity: .2; transform: none; }
+  .spell-tools { display: flex; gap: 10px; justify-content: center; }
+  .spell-tools .outline-btn { min-height: 50px; font-size: 18px; color: var(--muted); }
   .spell-feedback { font-size: 21px; font-weight: 600; text-align: center; line-height: 1.8; color: var(--muted); }
   .spell-feedback .ans { font-family: var(--en); font-size: 40px; font-weight: 800; letter-spacing: 3px; }
-  .spell-feedback .typed { font-family: var(--en); font-weight: 800; letter-spacing: 2px; }
   .spell-feedback .ok { color: var(--ok); }
   .spell-feedback .bad { color: var(--bad); text-decoration: underline; text-underline-offset: 5px; }
 
@@ -381,9 +392,12 @@
         </div>
         <div class="choices" id="choices"></div>
         <div class="spell" id="spell" hidden>
-          <input class="spell-input" id="spellInput" type="text" autocomplete="off" autocorrect="off"
-                 autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="打出聽到的單字">
-          <button class="primary-btn" id="btnSpellOk">確認（Enter）</button>
+          <div class="slots" id="slots"></div>
+          <div class="tiles" id="tiles"></div>
+          <div class="spell-tools" id="spellTools">
+            <button class="outline-btn" id="btnUndo">← 退一格</button>
+            <button class="outline-btn" id="btnClear">全部清除</button>
+          </div>
           <div class="spell-feedback" id="spellFeedback"></div>
         </div>
       </div>
@@ -513,7 +527,7 @@
 
   const MODES = {
     word:  { title: '聽音選字', desc: '聽單字，從四個選項選出正確的拼字。', hint: '按喇叭聽單字，再選出正確的字', min: 4 },
-    spell: { title: '聽音拼字', desc: '聽單字，自己打出拼字，按 Enter 確認。', hint: '聽完把單字打出來，按 Enter 確認', min: 1 },
+    spell: { title: '聽音拼字', desc: '聽單字，點選打散的字母，拼出正確的單字。', hint: '聽完點字母，拼出這個單字', min: 1 },
   };
 
   /* ================= 儲存 ================= */
@@ -1093,13 +1107,7 @@
     setHint(MODES[g.mode].hint);
 
     if (g.mode === 'spell') {
-      const input = $('#spellInput');
-      input.value = '';
-      input.className = 'spell-input';
-      input.readOnly = false;
-      $('#spellFeedback').innerHTML = '';
-      $('#btnSpellOk').hidden = false;
-      input.focus();
+      setupSpelling(target.word);
     } else {
       const others = shuffle(bank.filter(b => b.word !== target.word)).slice(0, 3);
       const options = shuffle([target, ...others]);
@@ -1134,18 +1142,70 @@
     answered(right, btn);
   }
 
-  function submitSpelling() {
+  /* ---------- 聽音拼字：點選打散的字母 ---------- */
+
+  function setupSpelling(word) {
     const g = game;
-    if (!g || g.mode !== 'spell') return;
-    if (g.answered) return goNext();             // 答完後再按 Enter = 下一題
-    const input = $('#spellInput');
-    const typed = input.value.trim().toLowerCase();
-    if (!typed) { input.focus(); return; }
+    const letters = [...word];
+    let mixed = shuffle(letters);
+    // 打散後不要剛好跟答案一樣（全部同一個字母的字除外）
+    for (let i = 0; i < 20 && mixed.join('') === word && new Set(letters).size > 1; i++) mixed = shuffle(letters);
+    g.tiles = mixed;
+    g.picked = [];   // 依序點了哪幾塊字母（存 tiles 的索引）
+    $('#spellFeedback').innerHTML = '';
+    $('#spellTools').hidden = false;
+    $('#tiles').hidden = false;
+    $('#slots').className = 'slots';
+    renderSpelling();
+  }
+
+  function renderSpelling(badIdx = []) {
+    const g = game;
+    const n = g.tiles.length;
+    const slots = $('#slots');
+    slots.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const sp = document.createElement('button');
+      const t = g.picked[i];
+      sp.className = 'slot' + (t != null ? ' filled' : '') + (i === g.picked.length && !g.answered ? ' next' : '') + (badIdx.includes(i) ? ' bad' : '');
+      sp.textContent = t != null ? g.tiles[t] : '';
+      sp.disabled = g.answered || t == null;
+      sp.onclick = () => { g.picked.splice(i, 1); renderSpelling(); };   // 點已放上的字母 = 拿回來
+      slots.appendChild(sp);
+    }
+    const tiles = $('#tiles');
+    tiles.innerHTML = '';
+    g.tiles.forEach((ch, idx) => {
+      const b = document.createElement('button');
+      b.className = 'tile';
+      b.textContent = ch;
+      b.disabled = g.answered || g.picked.includes(idx);
+      b.onclick = () => pickTile(idx);
+      tiles.appendChild(b);
+    });
+  }
+
+  function pickTile(idx) {
+    const g = game;
+    if (!g || g.mode !== 'spell' || g.answered || g.picked.includes(idx) || g.picked.length >= g.tiles.length) return;
+    g.picked.push(idx);
+    tone([520 + g.picked.length * 60], 0.08, 'triangle');
+    renderSpelling();
+    if (g.picked.length === g.tiles.length) setTimeout(checkSpelling, 250);
+  }
+
+  function checkSpelling() {
+    const g = game;
+    if (!g || g.answered || g.picked.length !== g.tiles.length) return;
     const item = g.order[g.idx], target = item.word;
-    const right = typed === target.toLowerCase();
-    input.classList.add(right ? 'right' : 'wrong');
-    input.readOnly = true;
-    $('#btnSpellOk').hidden = true;
+    const typed = g.picked.map(i => g.tiles[i]).join('');
+    const right = typed === target;
+    g.answered = true;
+    const bad = [...typed].map((ch, i) => ch === target[i] ? -1 : i).filter(i => i >= 0);
+    renderSpelling(bad);
+    $('#slots').classList.add(right ? 'right' : 'wrong');
+    $('#spellTools').hidden = true;
+    $('#tiles').hidden = true;
     const fb = $('#spellFeedback');
     fb.innerHTML = '';
     const zh = zhOf(item);
@@ -1153,27 +1213,30 @@
       fb.innerHTML = '<span class="ok">拼對了！</span>';
       if (zh) fb.append('　' + zh);
     } else {
-      // 逐字母比對，拼錯的字母標紅
-      const line = document.createElement('div');
-      line.append('你打的：');
-      const typedEl = document.createElement('span');
-      typedEl.className = 'typed';
-      [...typed].forEach((ch, i) => {
-        const sp = document.createElement('span');
-        sp.className = ch === target[i] ? 'ok' : 'bad';
-        sp.textContent = ch;
-        typedEl.appendChild(sp);
-      });
-      line.appendChild(typedEl);
       const ans = document.createElement('div');
       ans.innerHTML = '正確答案：<span class="ans ok"></span>';
       ans.querySelector('.ans').textContent = target;
       if (zh) ans.append('　' + zh);
-      fb.append(line, ans);
+      fb.append(ans);
     }
-    answered(right, input);
-    input.focus();   // 讓 Enter 可以直接進下一題
+    answered(right, $('#slots'));
   }
+
+  $('#btnUndo').onclick = () => { const g = game; if (g && !g.answered && g.picked.length) { g.picked.pop(); renderSpelling(); } };
+  $('#btnClear').onclick = () => { const g = game; if (g && !g.answered) { g.picked = []; renderSpelling(); } };
+
+  // 有實體鍵盤時：打字母 = 點那塊字母，Backspace = 退一格，Enter = 下一題
+  addEventListener('keydown', e => {
+    const g = game;
+    if (!g || g.mode !== 'spell' || tab !== 'spell' || $('#modal').classList.contains('show')) return;
+    if (e.key === 'Enter' && g.answered) { e.preventDefault(); goNext(); return; }
+    if (g.answered) return;
+    if (e.key === 'Backspace') { e.preventDefault(); $('#btnUndo').click(); return; }
+    if (e.key.length === 1) {
+      const idx = g.tiles.findIndex((ch, i) => ch === e.key.toLowerCase() && !g.picked.includes(i));
+      if (idx >= 0) pickTile(idx);
+    }
+  });
 
   // 共用的答題回饋
   function answered(right, el) {
@@ -1226,7 +1289,6 @@
     const need = Math.ceil(total * 0.6);
     const passed = s >= need;
     $('#banner').classList.remove('show');
-    $('#spellInput').blur();
 
     const rs = $('#rStars');
     rs.innerHTML = '';
@@ -1282,10 +1344,6 @@
   $('#btnSpeak').onclick = () => { if (game) speak(currentWord()); };
   $('#btnSlow').onclick = () => { if (game) speak(currentWord(), true); };
   $('#btnNext').onclick = goNext;
-  $('#btnSpellOk').onclick = submitSpelling;
-  $('#spellInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submitSpelling(); }
-  });
   $('#btnQuit').onclick = async () => {
     if (await confirmBox('要結束這一局嗎？')) { endGame(); renderTop(); showSetup(); }
   };
