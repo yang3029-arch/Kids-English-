@@ -10,9 +10,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --navy: #2f5288;
-    --navy-press: #24426f;
-    --navy-soft: #edf2f9;
+    --accent: #e2681f;
+    --accent-press: #c4561a;
+    --accent-ink: #c4561a;
+    --accent-soft: #fdf1e8;
     --bg: #f4f4f1;
     --surface: #ffffff;
     --ink: #1f1f1f;
@@ -54,12 +55,12 @@
     border-bottom: 3px solid transparent;
   }
   .tabs button:active { transform: none; }
-  .tabs button.on { color: var(--navy); border-bottom-color: var(--navy); }
+  .tabs button.on { color: var(--accent-ink); border-bottom-color: var(--accent); }
   .toolbar { display: flex; align-items: center; gap: 12px; padding: 18px 0 20px; flex-wrap: wrap; }
   .outline-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 10px;
     min-height: 54px; padding: 0 22px; border-radius: 14px; border: 1.5px solid var(--line);
-    background: var(--surface); font-size: 20px; font-weight: 700; color: var(--navy);
+    background: var(--surface); font-size: 20px; font-weight: 700; color: var(--accent-ink);
   }
   .fs-seg { display: inline-flex; border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
   .fs-seg button { min-width: 60px; min-height: 51px; font-size: 22px; font-weight: 600; }
@@ -76,17 +77,17 @@
     min-height: 56px; padding: 0 26px; border-radius: 999px; border: 1.5px solid var(--line);
     background: var(--surface); font-size: 20px; font-weight: 500;
   }
-  .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
   .notice { padding: 16px 20px; margin-bottom: 18px; font-size: 18px; line-height: 1.7; }
   .notice.warn { background: var(--bad-soft); border-color: transparent; color: var(--bad); font-weight: 600; }
   .notice ol { margin: 6px 0 0; padding-left: 24px; color: var(--muted); }
   .primary-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-    min-height: 64px; padding: 0 34px; border-radius: 16px; background: var(--navy); color: #fff;
+    min-height: 64px; padding: 0 34px; border-radius: 16px; background: var(--accent); color: #fff;
     font-size: 22px; font-weight: 700;
   }
-  .primary-btn:active { background: var(--navy-press); }
+  .primary-btn:active { background: var(--accent-press); }
   .footer { text-align: center; color: var(--muted); font-size: 16px; padding: 18px 0 30px; }
 
   /* ---------- 單字卡 ---------- */
@@ -102,6 +103,12 @@
   .face .tag { position: absolute; top: 22px; right: 26px; color: var(--tag); font-weight: 700; font-size: 18px; font-family: var(--en); }
   .face .tip { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 18px; }
   .flash-word { font-family: var(--en); font-weight: 800; font-size: calc(clamp(52px, 12vw, 96px) * var(--fs)); letter-spacing: 1px; text-align: center; word-break: break-word; }
+  .flash-pic { max-width: 100%; max-height: 58%; object-fit: contain; border-radius: 16px; margin-bottom: 8px; pointer-events: none; }
+  .face.front.has-pic .flash-word { font-size: calc(clamp(40px, 9vw, 68px) * var(--fs)); }
+  .pic-btn {
+    position: absolute; top: 16px; left: 18px; min-height: 44px; padding: 0 14px; border-radius: 12px;
+    border: 1.5px solid var(--line); background: var(--surface); font-size: 16px; font-weight: 600; color: var(--accent-ink);
+  }
   .flash-zh { font-size: calc(clamp(44px, 10vw, 72px) * var(--fs)); font-weight: 700; text-align: center; }
   .flash-zh.none { font-size: 20px; font-weight: 500; color: var(--muted); }
   .flash-sub { font-family: var(--en); font-size: calc(28px * var(--fs)); font-weight: 700; color: var(--muted); }
@@ -112,7 +119,7 @@
   }
   .round-btn {
     width: 64px; height: 64px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface);
-    color: var(--navy); display: inline-flex; align-items: center; justify-content: center;
+    color: var(--accent); display: inline-flex; align-items: center; justify-content: center;
   }
   .round-btn svg { width: 28px; height: 28px; }
   .pos { font-family: var(--en); font-size: 26px; font-weight: 800; padding: 0 6px; white-space: nowrap; }
@@ -127,15 +134,15 @@
   .star-count.pop { animation: pop .45s; }
   .text-btn { font-size: 18px; color: var(--muted); padding: 8px 4px; text-decoration: underline; text-underline-offset: 4px; }
   .progress { height: 6px; background: #ececea; border-radius: 999px; overflow: hidden; margin-top: 12px; }
-  .progress > div { height: 100%; width: 0; background: var(--navy); border-radius: 999px; transition: width .4s; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .4s; }
   .speaker-zone { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 24px 0 20px; }
   .speaker-row { display: flex; align-items: center; gap: 14px; }
   .speaker {
-    width: 112px; height: 112px; border-radius: 50%; background: var(--navy); color: #fff;
+    width: 112px; height: 112px; border-radius: 50%; background: var(--accent); color: #fff;
     display: inline-flex; align-items: center; justify-content: center;
   }
   .speaker svg { width: 48px; height: 48px; }
-  .speaker:active { background: var(--navy-press); }
+  .speaker:active { background: var(--accent-press); }
   .speaker.talking, .round-btn.talking { animation: pulse .9s ease-in-out infinite; }
   .slow-btn { min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1.5px solid var(--line); font-size: 18px; font-weight: 600; color: var(--muted); }
   .hint { font-size: 19px; font-weight: 600; color: var(--muted); min-height: 28px; text-align: center; }
@@ -169,7 +176,7 @@
     user-select: text; -webkit-user-select: text; transition: border-color .2s, background .2s;
   }
   .spell-input::placeholder { font-family: inherit; font-size: 22px; letter-spacing: 0; color: #c2c2c2; font-weight: 500; }
-  .spell-input:focus { outline: none; border-color: var(--navy); background: var(--surface); }
+  .spell-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
   .spell-input.right { border-color: var(--ok); background: var(--ok-soft); animation: pop .45s; }
   .spell-input.wrong { border-color: var(--bad); background: var(--bad-soft); animation: shake .4s; }
   .spell-feedback { font-size: 21px; font-weight: 600; text-align: center; line-height: 1.8; color: var(--muted); }
@@ -213,11 +220,13 @@
   }
   .text-input { flex: 1; min-width: 140px; min-height: 56px; }
   textarea { width: 100%; min-height: 110px; resize: vertical; margin-top: 12px; }
-  .text-input:focus, textarea:focus { outline: none; border-color: var(--navy); background: var(--surface); }
+  .text-input:focus, textarea:focus { outline: none; border-color: var(--accent); background: var(--surface); }
   .photo-preview { max-width: 100%; max-height: 220px; border-radius: 14px; margin-top: 12px; display: none; }
   .ocr-status { font-size: 17px; color: var(--muted); margin-top: 8px; min-height: 24px; }
   .word-list { border-top: 1px solid var(--line); }
-  .word-row { display: flex; align-items: center; gap: 12px; min-height: 66px; border-bottom: 1px solid var(--line); }
+  .word-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 66px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .word-row .thumb { width: 52px; height: 52px; flex: none; border-radius: 10px; object-fit: cover; background: var(--bg); }
+  .word-row .thumb.empty { border: 1.5px dashed var(--line); }
   .word-row .w { font-family: var(--en); font-weight: 800; font-size: 24px; min-width: 90px; }
   .word-row .zh { flex: 1; color: var(--muted); font-size: 19px; }
   .word-row .acts { display: flex; gap: 6px; }
@@ -229,7 +238,7 @@
   #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
   .banner {
     position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%) scale(0); z-index: 60; pointer-events: none;
-    background: var(--navy); color: #fff; font-size: clamp(26px, 6vw, 40px); font-weight: 700;
+    background: var(--accent); color: #fff; font-size: clamp(26px, 6vw, 40px); font-weight: 700;
     padding: 18px 38px; border-radius: 999px; width: max-content; max-width: 90vw; text-align: center;
   }
   .banner.show { animation: bannerIn 1.8s ease forwards; }
@@ -278,10 +287,10 @@
   <div class="head-inner">
     <div class="brand">
       <svg viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 29V15" stroke="#2f5288" stroke-width="3" stroke-linecap="round"/>
-        <path d="M16 16C16 9 11 5 4 5c0 7 5 11 12 11z" fill="#2f5288"/>
-        <path d="M16 13c0-5 4-8 11-8 0 5-4 8-11 8z" fill="#2f5288"/>
-        <ellipse cx="16" cy="29" rx="5" ry="1.6" fill="#e8a39a"/>
+        <path d="M16 29V15" stroke="#e2681f" stroke-width="3" stroke-linecap="round"/>
+        <path d="M16 16C16 9 11 5 4 5c0 7 5 11 12 11z" fill="#e2681f"/>
+        <path d="M16 13c0-5 4-8 11-8 0 5-4 8-11 8z" fill="#e2681f"/>
+        <ellipse cx="16" cy="29" rx="5" ry="1.6" fill="#f6c08f"/>
       </svg>
       <h1>英文小耳朵<span class="en">Review</span></h1>
     </div>
@@ -319,7 +328,9 @@
     <div class="flashcard" id="flashcard">
       <div class="flash-inner">
         <div class="card face front">
+          <button class="pic-btn" id="cardPicBtn">＋ 加我的圖</button>
           <span class="tag" id="cardTag"></span>
+          <img class="flash-pic" id="cardPic" alt="" hidden>
           <div class="flash-word" id="cardWord"></div>
           <div class="tip">點卡片翻面</div>
         </div>
@@ -435,6 +446,8 @@
     <div class="card panel">
       <h3>目前題庫</h3>
       <div class="bank-count" id="bankCount"></div>
+      <p class="note">按「圖片」可以拍下自己畫的圖，或從相簿選一張，單字卡上就會出現這張圖。</p>
+      <input type="file" id="picInput" accept="image/*" hidden>
       <div class="word-list" id="wordList"></div>
       <div class="row" style="margin-top:18px">
         <button class="outline-btn" id="btnResetBank">恢復預設題庫</button>
@@ -532,6 +545,57 @@
   let puzzle = store.get('puzzle', { n: 0, done: 0 });   // n = 目前拼好的塊數，done = 已完成幾個
 
   const saveBank = () => store.set('bank', bank);
+
+  // 自己畫的圖：每個單字分開存，避免一次讀寫太大
+  const picKey = word => 'kidsEng.pic.' + word;
+  function getPic(word) { try { return localStorage.getItem(picKey(word)); } catch { return null; } }
+  function setPic(word, dataUrl) {
+    try {
+      if (dataUrl) localStorage.setItem(picKey(word), dataUrl);
+      else localStorage.removeItem(picKey(word));
+      return true;
+    } catch { return false; }
+  }
+
+  // 把照片縮小成 400px 的 JPEG，存起來才不會太佔空間
+  function shrinkImage(file, max = 400) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k);
+        c.height = Math.round(img.naturalHeight * k);
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff';
+        g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image')); };
+      img.src = url;
+    });
+  }
+
+  let picTarget = null, picDone = null;
+  function choosePic(item, done) {
+    picTarget = item; picDone = done;
+    $('#picInput').click();
+  }
+  $('#picInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || !picTarget) return;
+    try {
+      const dataUrl = await shrinkImage(file);
+      if (!setPic(picTarget.word, dataUrl)) return alert('儲存空間不夠了，請先到「題庫」移除一些圖片。');
+      if (picDone) picDone();
+    } catch {
+      alert('這張圖片打不開，請換一張試試。');
+    }
+  });
   const zhOf = item => item.zh || ZH[item.word] || '';
 
   /* ================= 工具 ================= */
@@ -699,7 +763,7 @@
   addEventListener('resize', resize); resize();
 
   function confetti(x, y, count = 60, spread = 1) {
-    const colors = ['#2f5288', '#f2b200', '#2e9e62', '#e8a39a', '#6c8fc7', '#c8553d'];
+    const colors = ['#e2681f', '#f2b200', '#2e9e62', '#f6c08f', '#5b8fd6', '#c8553d'];
     const d = devicePixelRatio;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2, s = (4 + Math.random() * 9) * spread;
@@ -904,6 +968,7 @@
 
     $('#cardWord').textContent = item.word;
     $('#cardWordBack').textContent = item.word;
+    showCardPic(item);
     const zh = zhOf(item);
     $('#cardZh').textContent = zh || '還沒有中文，可以到「題庫」加上';
     $('#cardZh').classList.toggle('none', !zh);
@@ -911,6 +976,23 @@
     $('#cardPos').textContent = `${deck.i + 1} / ${deck.order.length}`;
     if (booted) sayLater(item.word, 300);   // 剛打開網頁時還不能自動發聲
   }
+
+  function showCardPic(item) {
+    const pic = getPic(item.word);
+    const img = $('#cardPic');
+    img.hidden = !pic;
+    if (pic) img.src = pic; else img.removeAttribute('src');
+    $('#flashcard .face.front').classList.toggle('has-pic', !!pic);
+    $('#cardPicBtn').textContent = pic ? '換圖' : '＋ 加我的圖';
+  }
+
+  // 卡片上的「加我的圖」：不要讓這個按鈕觸發翻面或滑動
+  ['pointerdown', 'pointerup', 'click'].forEach(ev => $('#cardPicBtn').addEventListener(ev, e => e.stopPropagation()));
+  $('#cardPicBtn').addEventListener('click', () => {
+    if (!deck) return;
+    const item = deck.order[deck.i];
+    choosePic(item, () => showCardPic(item));
+  });
 
   function moveCard(step) {
     if (!deck) return;
@@ -1224,14 +1306,19 @@
     bank.forEach(item => {
       const row = document.createElement('div');
       row.className = 'word-row';
+      const pic = getPic(item.word);
       row.innerHTML = `
+        ${pic ? '<img class="thumb" alt="">' : '<span class="thumb empty"></span>'}
         <span class="w"></span>
         <span class="zh"></span>
         <span class="acts">
           <button data-act="say">發音</button>
           <button data-act="zh">中文</button>
+          <button data-act="pic">${pic ? '換圖' : '圖片'}</button>
+          ${pic ? '<button data-act="unpic">移除圖</button>' : ''}
           <button data-act="del">刪除</button>
         </span>`;
+      if (pic) row.querySelector('.thumb').src = pic;
       row.querySelector('.w').textContent = item.word;
       row.querySelector('.zh').textContent = zhOf(item);
       row.querySelector('.acts').addEventListener('click', e => bankAction(e, item));
@@ -1249,8 +1336,13 @@
       item.zh = zh.trim() || undefined;
       saveBank(); renderBank();
     }
+    if (act === 'pic') choosePic(item, renderBank);
+    if (act === 'unpic') {
+      if (await confirmBox(`要移除「${item.word}」的圖片嗎？`)) { setPic(item.word, null); renderBank(); }
+    }
     if (act === 'del') {
       if (await confirmBox(`要刪除「${item.word}」嗎？`)) {
+        setPic(item.word, null);
         bank = bank.filter(b => b !== item); saveBank(); renderBank(); deck = null;
       }
     }
@@ -1302,7 +1394,8 @@
   };
 
   $('#btnResetBank').onclick = async () => {
-    if (await confirmBox('要恢復成預設的 20 個單字嗎？（自己加的單字會被移除）')) {
+    if (await confirmBox('要恢復成預設的 20 個單字嗎？（自己加的單字和它們的圖片會被移除）')) {
+      bank.forEach(b => { if (!DEFAULT_WORDS.includes(b.word)) setPic(b.word, null); });
       bank = DEFAULT_WORDS.map(word => ({ word })); saveBank(); renderBank(); deck = null;
     }
   };
