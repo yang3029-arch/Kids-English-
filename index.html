@@ -226,6 +226,28 @@
   .won { width: 100%; padding: 14px; border-radius: 18px; background: var(--accent-soft); font-weight: 700; }
   .won .row { justify-content: center; margin-top: 8px; }
   .won svg { width: 72px; height: 72px; }
+  .hero-card { padding: 20px; margin-bottom: 18px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .hero-stage svg { width: 230px; height: 260px; display: block; }
+  .hero-info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .hero-name { font-size: 30px; font-weight: 800; }
+  .hero-name .en { font-size: 20px; color: var(--muted); margin-left: 8px; }
+  .hero-info .muted { font-size: 18px; }
+  .sec-title { font-size: 20px; font-weight: 700; margin: 6px 0 12px; }
+  .sec-title small { font-size: 15px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+  .heroes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
+  .hero-pick { padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; border-width: 2px; }
+  .hero-pick svg { width: 100%; max-width: 110px; height: auto; aspect-ratio: 165 / 185; }
+  .hero-pick .zh { font-size: 17px; font-weight: 700; }
+  .hero-pick.on { border-color: var(--accent); background: var(--accent-soft); }
+  .weapon.equipped { border-color: var(--accent); border-width: 2px; background: var(--accent-soft); }
+  .weapon .badge { font-size: 14px; font-weight: 700; color: var(--accent-ink); }
+  .setup-top { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; flex-wrap: wrap; }
+  .hero-mini svg { width: 120px; height: 135px; display: block; }
+  .unlock .outline-btn { min-height: 50px; }
+  @media (max-width: 560px) {
+    .heroes { grid-template-columns: repeat(3, 1fr); }
+    .hero-stage svg { width: 180px; height: 204px; }
+  }
   .arsenal-head { padding: 20px 22px; margin-bottom: 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; }
   .big-count { font-size: 22px; font-weight: 700; }
   .big-count b { font-size: 34px; color: var(--accent-ink); }
@@ -236,7 +258,7 @@
   .weapon .en { font-family: var(--en); font-size: 16px; font-weight: 700; color: var(--muted); }
   .weapon.locked .zh, .weapon.locked .en { color: #c4c4c0; }
   .weapon .cost { font-size: 15px; color: var(--muted); font-weight: 600; }
-  .weapon.pop svg { animation: cheer .8s ease; }
+  .weapon.pop svg, .hero-stage.pop svg { animation: cheer .8s ease; }
   .unlock-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 75; display: none; align-items: center; justify-content: center; padding: 16px; }
   .unlock-bg.show { display: flex; }
   .unlock { width: min(420px, 100%); padding: 26px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
@@ -330,7 +352,7 @@
       <button data-tab="cards">單字卡</button>
       <button data-tab="word">聽音選字</button>
       <button data-tab="spell">聽音拼字</button>
-      <button data-tab="arsenal">武器庫</button>
+      <button data-tab="arsenal">我的角色</button>
       <button data-tab="bank">題庫</button>
     </nav>
     <div class="toolbar">
@@ -394,7 +416,10 @@
         <button class="chip" data-slow>慢速發音</button>
       </div>
       <div class="card setup-card">
-        <div class="wp-next big" id="sNext"></div>
+        <div class="setup-top">
+          <div class="hero-mini" id="sHero"></div>
+          <div class="wp-next big" id="sNext"></div>
+        </div>
         <h2 id="setupTitle"></h2>
         <p id="setupDesc"></p>
         <button class="primary-btn" id="btnStart">開始 →</button>
@@ -454,8 +479,19 @@
     </div>
   </section>
 
-  <!-- 武器庫 -->
+  <!-- 我的角色與武器庫 -->
   <section class="panel-tab" id="p-arsenal" hidden>
+    <div class="card hero-card">
+      <div class="hero-stage" id="heroStage"></div>
+      <div class="hero-info">
+        <div class="hero-name" id="heroName"></div>
+        <div class="muted" id="heroWeapon"></div>
+        <button class="outline-btn" id="btnUnequip">卸下武器</button>
+      </div>
+    </div>
+    <h3 class="sec-title">選一個角色</h3>
+    <div class="heroes" id="heroList"></div>
+    <h3 class="sec-title">武器庫 <small>點一下已解鎖的武器，裝備到角色手上</small></h3>
     <div class="card arsenal-head">
       <div class="big-count"><b id="aCount">0</b> / 10 個武器</div>
       <div class="muted" id="aHint"></div>
@@ -510,7 +546,8 @@
     <div class="unlock-title">解鎖新武器！</div>
     <div class="unlock-art" id="unlockArt"></div>
     <div class="unlock-name" id="unlockName"></div>
-    <button class="primary-btn" id="unlockOk">太棒了！</button>
+    <button class="primary-btn" id="unlockEquip"></button>
+    <button class="outline-btn" id="unlockOk">太棒了！</button>
   </div>
 </div>
 
@@ -922,6 +959,14 @@
     $('#unlockName').append(w.zh);
     const en = document.createElement('span'); en.className = 'en'; en.textContent = w.en;
     $('#unlockName').appendChild(en);
+    const h = currentHero();
+    $('#unlockEquip').textContent = `裝備給${h.zh}`;
+    $('#unlockEquip').onclick = () => {
+      equip(w);
+      $('#unlock').classList.remove('show');
+      toast(`${h.zh}拿起了${w.zh}！`);
+      if (tab === 'word' || tab === 'spell') renderSetupHero();
+    };
     $('#unlock').classList.add('show');
     sfx.win();
     [0, 300, 600].forEach(t => setTimeout(() => confetti(innerWidth * (0.25 + Math.random() * 0.5), innerHeight * 0.35, 90, 1.4), t));
@@ -930,7 +975,9 @@
   $('#unlockOk').onclick = () => $('#unlock').classList.remove('show');
 
   function renderArsenal() {
+    renderHero();
     const n = unlockedCount();
+    const using = heroWeapon(currentHero());
     $('#aCount').textContent = n;
     $('#aHint').textContent = n >= WEAPONS.length ? `全部解鎖了！★ ${totalStars}`
       : `★ ${totalStars} · 再 ${WEAPON_COST * (n + 1) - totalStars} 顆星星解鎖下一個（答對一題 +${STAR_PER}）`;
@@ -939,18 +986,118 @@
     WEAPONS.forEach((w, i) => {
       const open = i < n;
       const card = document.createElement('button');
-      card.className = 'card weapon' + (open ? '' : ' locked');
-      card.innerHTML = `${weaponSvg(w)}<div class="zh"></div><div class="en"></div>${open ? '' : `<div class="cost">🔒 ★ ${WEAPON_COST * (i + 1)}</div>`}`;
+      card.className = 'card weapon' + (open ? '' : ' locked') + (using === w ? ' equipped' : '');
+      card.innerHTML = `${weaponSvg(w)}<div class="zh"></div><div class="en"></div>${open ? '' : `<div class="cost">🔒 ★ ${WEAPON_COST * (i + 1)}</div>`}${using === w ? '<div class="badge">裝備中</div>' : ''}`;
       card.querySelector('.zh').textContent = open ? w.zh : '？？？';
       card.querySelector('.en').textContent = open ? w.en : '';
       card.onclick = () => {
         if (!open) return toast(`集到 ${WEAPON_COST * (i + 1)} 顆星星就能解鎖`);
-        card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
+        equip(w);
+        renderArsenal();
         speak(w.en);
+        const stage = $('#heroStage');
+        stage.classList.remove('pop'); void stage.offsetWidth; stage.classList.add('pop');
       };
       grid.appendChild(card);
     });
   }
+
+  /* ================= 積木角色 ================= */
+
+  function renderSetupHero() {
+    const h = currentHero();
+    $('#sHero').innerHTML = heroSvg(h, heroWeapon(h));
+  }
+
+  // 每個武器「握把」在 100x100 圖裡的位置，讓武器剛好握在角色手上
+  const GRIP = { axe: [68, 86], sword: [28, 82], bow: [36, 50], spear: [36, 70], hammer: [67, 80],
+    boomerang: [22, 72], shuriken: [44, 56], laser: [34, 68], saber: [33, 75], ak47: [35, 60] };
+
+  const SKIN = '#f6c624';
+  const HEROES = [
+    { id: 'knight', zh: '騎士', en: 'knight', torso: '#2f5fae', arm: '#2f5fae', legs: '#6b7480',
+      hat: '<path d="M35 46 L35 26 Q35 4 60 4 Q85 4 85 26 L85 46 L77 46 L77 22 L43 22 L43 46 Z" fill="#b8c2cc"/><path d="M57 22 L63 22 L63 34 L57 34 Z" fill="#b8c2cc"/><path d="M60 4 L60 -4" stroke-width="6" stroke="#d2493f"/>',
+      chest: '<path d="M60 58 L60 92 M48 70 L72 70" stroke="#f2b200" stroke-width="6"/>' },
+    { id: 'ninja', zh: '忍者', en: 'ninja', torso: '#2b2b2b', arm: '#2b2b2b', legs: '#2b2b2b',
+      hat: '<path d="M37 18 Q37 8 48 8 L72 8 Q83 8 83 18 L83 22 L37 22 Z" fill="#2b2b2b"/><path d="M37 34 L83 34 L83 40 Q83 46 74 46 L46 46 Q37 46 37 40 Z" fill="#2b2b2b"/><path d="M83 14 L96 8 L94 18 Z" fill="#d2493f"/>',
+      chest: '<rect x="30" y="84" width="60" height="8" fill="#d2493f" stroke="none"/><path d="M44 54 L60 74 L76 54" stroke="#555" stroke-width="3" fill="none"/>',
+      face: '<path d="M45 25 L56 28 M75 25 L64 28" stroke-width="3"/><circle cx="52" cy="31" r="3.5" fill="#2b2b2b"/><circle cx="68" cy="31" r="3.5" fill="#2b2b2b"/>' },
+    { id: 'astronaut', zh: '太空人', en: 'astronaut', torso: '#f4f4f4', arm: '#f4f4f4', legs: '#f4f4f4',
+      hat: '<circle cx="60" cy="28" r="27" fill="#bfe3ff" opacity=".45"/><circle cx="60" cy="28" r="27" fill="none"/><path d="M42 18 Q48 8 58 8" stroke="#fff" stroke-width="4" fill="none"/>',
+      chest: '<circle cx="60" cy="72" r="10" fill="#2f5fae"/><path d="M53 74 Q60 64 67 70" stroke="#fff" stroke-width="2.5" fill="none"/><rect x="66" y="56" width="12" height="6" rx="1" fill="#d2493f"/>' },
+    { id: 'police', zh: '警察', en: 'police officer', torso: '#24365c', arm: '#24365c', legs: '#1f1f1f',
+      hat: '<path d="M34 16 Q60 2 86 16 L82 22 L38 22 Z" fill="#24365c"/><rect x="34" y="20" width="52" height="7" rx="3" fill="#1f1f1f"/><circle cx="60" cy="13" r="4" fill="#f2b200"/>',
+      chest: '<path d="M70 60 L72.5 65.5 L78 66 L74 70 L75 76 L70 73 L65 76 L66 70 L62 66 L67.5 65.5 Z" fill="#f2b200"/><path d="M60 52 L60 102" stroke="#111" stroke-width="2"/>' },
+    { id: 'pirate', zh: '海盜', en: 'pirate', torso: '#f4f4f4', arm: '#d2493f', legs: '#7a4b22',
+      hat: '<path d="M36 22 Q36 8 60 8 Q84 8 84 22 L84 26 L36 26 Z" fill="#d2493f"/><path d="M84 20 L96 26 L90 32 Z M84 20 L98 16 L94 26 Z" fill="#d2493f"/><circle cx="46" cy="16" r="2.5" fill="#fff" stroke="none"/><circle cx="58" cy="13" r="2.5" fill="#fff" stroke="none"/><circle cx="72" cy="16" r="2.5" fill="#fff" stroke="none"/>',
+      chest: '<path d="M36 62 L84 62 M33 74 L87 74 M31 86 L89 86 M29 98 L91 98" stroke="#d2493f" stroke-width="5"/>',
+      face: '<path d="M38 26 L82 22" stroke="#2b2b2b" stroke-width="2"/><ellipse cx="68" cy="31" rx="6" ry="5" fill="#2b2b2b"/><circle cx="52" cy="31" r="3" fill="#2b2b2b"/><path d="M50 39 Q60 46 70 39" fill="none" stroke-width="2.5"/>' },
+  ];
+
+  // 畫一個積木人，右手（畫面右邊）拿著武器
+  function heroSvg(h, weapon) {
+    const O = 'stroke="#2b2b2b" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"';
+    const face = h.face || '<circle cx="52" cy="31" r="3" fill="#2b2b2b"/><circle cx="68" cy="31" r="3" fill="#2b2b2b"/><path d="M50 39 Q60 46 70 39" fill="none" stroke-width="2.5"/>';
+    let held = '';
+    if (weapon) {
+      const [gx, gy] = GRIP[weapon.id] || [50, 70];
+      const k = 0.72, hx = 100, hy = 98;
+      held = `<g transform="translate(${hx - gx * k} ${hy - gy * k}) scale(${k})">${weapon.svg}</g>`;
+    }
+    return `<svg viewBox="-12 -12 165 185" aria-hidden="true"><g ${O}>
+      <rect x="28" y="112" width="64" height="12" rx="2" fill="${h.legs}"/>
+      <path d="M28 122 L58 122 L58 162 L26 162 Z" fill="${h.legs}"/>
+      <path d="M62 122 L92 122 L94 162 L62 162 Z" fill="${h.legs}"/>
+      <path d="M22 54 L12 92 L26 96 L34 64 Z" fill="${h.arm}"/>
+      <circle cx="18" cy="100" r="8" fill="${SKIN}"/>
+      <path d="M98 54 L108 92 L94 96 L86 64 Z" fill="${h.arm}"/>
+      <path d="M34 50 L86 50 L94 112 L26 112 Z" fill="${h.torso}"/>
+      <g clip-path="none">${h.chest}</g>
+      <rect x="52" y="44" width="16" height="8" fill="${SKIN}"/>
+      <rect x="50" y="2" width="20" height="8" rx="2" fill="${SKIN}"/>
+      <rect x="38" y="8" width="44" height="40" rx="11" fill="${SKIN}"/>
+      ${face}
+      ${h.hat}
+      ${held}
+      <path d="M95 92 A8 8 0 1 1 105 104" fill="${SKIN}"/>
+    </g></svg>`;
+  }
+
+  let heroId = store.get('hero', 'knight');
+  let loadout = store.get('loadout', {});   // 角色 id -> 武器 id
+  const currentHero = () => HEROES.find(h => h.id === heroId) || HEROES[0];
+  const heroWeapon = h => {
+    const id = loadout[h.id];
+    const i = WEAPONS.findIndex(w => w.id === id);
+    return i >= 0 && i < unlockedCount() ? WEAPONS[i] : null;
+  };
+
+  function equip(weapon) {
+    loadout[currentHero().id] = weapon ? weapon.id : null;
+    store.set('loadout', loadout);
+  }
+
+  function renderHero() {
+    const h = currentHero(), w = heroWeapon(h);
+    $('#heroStage').innerHTML = heroSvg(h, w);
+    $('#heroName').innerHTML = '';
+    $('#heroName').append(h.zh);
+    const en = document.createElement('span'); en.className = 'en'; en.textContent = h.en;
+    $('#heroName').appendChild(en);
+    $('#heroWeapon').textContent = w ? `手上拿著：${w.zh} ${w.en}` : (unlockedCount() ? '還沒有裝備武器，點下面的武器裝備' : '答對題目集星星，解鎖第一個武器吧！');
+    $('#btnUnequip').hidden = !w;
+    const list = $('#heroList');
+    list.innerHTML = '';
+    HEROES.forEach(x => {
+      const b = document.createElement('button');
+      b.className = 'card hero-pick' + (x.id === h.id ? ' on' : '');
+      b.innerHTML = heroSvg(x, heroWeapon(x)) + '<div class="zh"></div>';
+      b.querySelector('.zh').textContent = x.zh;
+      b.onclick = () => { heroId = x.id; store.set('hero', heroId); renderArsenal(); speak(x.en); };
+      list.appendChild(b);
+    });
+  }
+  $('#btnUnequip').onclick = () => { equip(null); renderArsenal(); };
 
   function toast(text) {
     const b = $('#banner');
@@ -1146,6 +1293,7 @@
     $('#setupTitle').textContent = m.title;
     $('#setupDesc').textContent = m.desc + `答對一題得 ${STAR_PER} 顆星星，每 ${WEAPON_COST} 顆解鎖一個武器。`;
     renderNext($('#sNext'));
+    renderSetupHero();
     showQuizView('setup');
   }
 
