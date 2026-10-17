@@ -233,6 +233,17 @@
     .page-row .thumb { width: 84px; height: 110px; }
   }
 
+  /* 框選文字範圍 */
+  .crop-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 85; display: none; align-items: center; justify-content: center; padding: 12px; }
+  .crop-bg.show { display: flex; }
+  .crop-box { width: min(900px, 100%); max-height: 100%; overflow: auto; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .crop-title { font-size: 20px; font-weight: 700; text-align: center; }
+  .crop-title small { display: block; font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 4px; }
+  .crop-wrap { position: relative; display: inline-block; touch-action: none; cursor: crosshair; line-height: 0; }
+  .crop-wrap img { display: block; max-width: 100%; max-height: 62vh; border-radius: 12px; pointer-events: none; -webkit-user-drag: none; }
+  .crop-rect { position: absolute; border: 3px solid var(--accent); background: rgba(226,104,31,.15); border-radius: 6px; pointer-events: none; }
+  .crop-status { font-size: 16px; color: var(--muted); min-height: 22px; text-align: center; }
+
   /* ---------- 共用 ---------- */
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 80; display: none; align-items: center; justify-content: center; padding: 16px; }
   .modal-bg.show { display: flex; }
@@ -414,7 +425,7 @@
       </div>
       <div class="card panel">
         <h3>頁面</h3>
-        <p class="note">拍下每一頁（可以一次選很多張）。按「辨識文字」自動抓出英文，再檢查修改。按「錄音」可以錄下自己唸這一頁的聲音。中文翻譯可以自己打，或按「自動翻譯」（會把這頁的英文送到線上翻譯服務 MyMemory），翻好後可以再修改。</p>
+        <p class="note">拍下每一頁（可以一次選很多張）。按「框選文字」框出英文字的地方再辨識，比「辨識整頁」準，辨識後請檢查修改。按「錄音」可以錄下自己唸這一頁的聲音。中文翻譯可以自己打，或按「自動翻譯」（會把這頁的英文送到線上翻譯服務 MyMemory），翻好後可以再修改。</p>
         <div class="row" style="margin-bottom:16px">
           <button class="primary-btn" id="btnAddPages">＋ 加頁面</button>
           <button class="outline-btn" id="btnOcrAll">全部辨識文字</button>
@@ -454,6 +465,19 @@
       <button class="primary-btn" id="sheetAdd">加入單字卡</button>
     </div>
     <button class="text-btn" id="sheetClose">關閉</button>
+  </div>
+</div>
+
+<div class="crop-bg" id="cropModal">
+  <div class="card crop-box">
+    <div class="crop-title">用手指框出英文字的範圍<small>不要框到圖畫和手寫的中文，辨識會比較準。字分成好幾塊時，可以一塊一塊框，選「接在後面」。</small></div>
+    <div class="crop-wrap" id="cropWrap"><img id="cropImg" alt=""><div class="crop-rect" id="cropRect" hidden></div></div>
+    <div class="row" style="justify-content:center">
+      <button class="outline-btn plain" id="cropCancel">取消</button>
+      <button class="outline-btn" id="cropAppend">辨識並接在後面</button>
+      <button class="primary-btn" id="cropOk">辨識並取代</button>
+    </div>
+    <div class="crop-status" id="cropStatus"></div>
   </div>
 </div>
 
@@ -1310,7 +1334,8 @@
           <textarea class="en-text" placeholder="這一頁的英文（可以按「辨識文字」自動填入）"></textarea>
           <textarea class="zh-text" placeholder="中文翻譯（可不填，或按「自動翻譯」）"></textarea>
           <div class="acts">
-            <button class="outline-btn small" data-act="ocr">辨識文字</button>
+            <button class="outline-btn small" data-act="crop">框選文字</button>
+            <button class="outline-btn small" data-act="ocr">辨識整頁</button>
             <button class="outline-btn small" data-act="tr">自動翻譯</button>
             <button class="outline-btn small rec" data-act="rec">● 錄音</button>
             <button class="outline-btn small plain" data-act="play" ${pg.audio ? '' : 'hidden'}>▶ 聽錄音</button>
@@ -1353,6 +1378,7 @@
       row.querySelector('textarea.en-text').value = pg.text;
       renderSuggestions();
     }
+    if (act === 'crop') openCrop(pg, row);
     if (act === 'tr') {
       if (pg.zh && pg.zh.trim() && !(await confirmBox('這一頁已經有中文翻譯，要重新自動翻譯嗎？'))) return;
       await translatePage(pg, status);
@@ -1427,26 +1453,169 @@
       ocrWorker = await Tesseract.createWorker('eng', 1, {
         logger: m => { if (ocrStatusEl && m.status === 'recognizing text') ocrStatusEl.textContent = `辨識中… ${Math.round(m.progress * 100)}%`; },
       });
+      // 只認英文字母、數字和常見標點，手寫中文和圖案比較不會變成奇怪的符號
+      await ocrWorker.setParameters({ tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?;:'\"-() " });
     }
     return ocrWorker;
   }
-  // 把辨識結果整理成一般的段落：段落之間空一行，段落內的換行接起來
-  function tidyOcr(text) {
-    return text.replace(/\r/g, '').split(/\n\s*\n/).map(p => p.replace(/\s*\n\s*/g, ' ').replace(/[|_~]+/g, '').trim()).filter(Boolean).join('\n');
+
+  // 辨識前先處理照片：只取框選的範圍、放大、轉黑白、拉高對比
+  function prepImage(blob, rect) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const r = rect || { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
+        const k = Math.max(1, Math.min(3, 2000 / r.w));
+        const c = document.createElement('canvas');
+        c.width = Math.round(r.w * k); c.height = Math.round(r.h * k);
+        const g = c.getContext('2d');
+        g.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+        const hist = new Uint32Array(256);
+        for (let i = 0; i < px.length; i += 4) {
+          const v = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000 | 0;
+          px[i] = v; hist[v]++;
+        }
+        // 用 2% 和 98% 的亮度當黑白兩端，把對比拉開
+        const total = px.length / 4;
+        let lo = 0, hi = 255, acc = 0;
+        for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc > total * 0.02) { lo = v; break; } }
+        acc = 0;
+        for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc > total * 0.02) { hi = v; break; } }
+        const span = Math.max(1, hi - lo);
+        for (let i = 0; i < px.length; i += 4) {
+          const v = Math.max(0, Math.min(255, (px[i] - lo) * 255 / span));
+          px[i] = px[i + 1] = px[i + 2] = v;
+        }
+        g.putImageData(d, 0, 0);
+        resolve(c);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image')); };
+      img.src = url;
+    });
   }
-  async function ocrPage(pg, statusEl) {
+
+  // 只留下有把握的英文字：把信心低的字、奇怪符號、大部分是亂碼的整行丟掉
+  const OK_WORD = /^["“(]*[A-Za-z][A-Za-z'’-]*[.,!?;:"”)]*$|^\d+[.,]?$/;
+  const SOFT_WORD = /^["“(]*[A-Z]?[a-z][a-z'’-]*[.,!?;:"”)]*$/;
+  // 單一個字母只有 a、A、I 是真的英文字，其他多半是圖畫被誤認
+  const ONE_LETTER = /^["“(]*(a|A|I)[.,!?;:"”)]*$/;
+  const realLength = t => t.replace(/[^A-Za-z]/g, '').length;
+  function cleanOcr(data) {
+    const paras = [];
+    (data.blocks || []).forEach(block => (block.paragraphs || []).forEach(para => {
+      const lines = [];
+      (para.lines || []).forEach(line => {
+        const words = line.words || [];
+        if (!words.length) return;
+        const isStrong = w => OK_WORD.test(w.text) &&
+          (realLength(w.text) === 1 ? ONE_LETTER.test(w.text) && w.confidence >= 80 : w.confidence >= 55);
+        const strong = words.filter(isStrong);
+        if (!strong.length) return;
+        const avg = strong.reduce((sum, w) => sum + w.confidence, 0) / strong.length;
+        if (avg < 65) return;
+        // 同一行其他字都很清楚時，看起來像一般英文單字的字就算信心低也留下（旁邊有手寫字時常會這樣）
+        const trusted = strong.filter(w => /[a-z]/.test(w.text)).length >= 2 && avg >= 80;
+        // 信心低的字只有接在清楚的字後面、而且還在同一句話裡時才救回來
+        const keep = words.filter((w, i) => {
+          if (strong.includes(w)) return true;
+          const prev = words[i - 1];
+          return trusted && prev && strong.includes(prev) && !/[.!?]["”)]*$/.test(prev.text) &&
+            SOFT_WORD.test(w.text) && realLength(w.text) >= 3;
+        });
+        if (!trusted && keep.length / words.length < 0.5) return;   // 清楚的英文行只拿掉雜訊，不整行丟掉
+        lines.push(keep.map(w => w.text).join(' '));
+      });
+      if (lines.length) paras.push(lines.join(' '));
+    }));
+    if (data.blocks) return paras.join('\n');
+    // 沒有逐字資料時：只留下大部分是英文字母的行
+    return data.text.split('\n').map(l => l.trim()).filter(l => {
+      const letters = (l.match(/[A-Za-z]/g) || []).length;
+      return l && letters / l.replace(/\s/g, '').length > 0.8;
+    }).join(' ');
+  }
+
+  async function ocrPage(pg, statusEl, rect = null, append = false) {
     ocrStatusEl = statusEl;
     if (statusEl) statusEl.textContent = '載入辨識工具中…（第一次需要比較久）';
     try {
       const w = await getWorker();
-      const { data } = await w.recognize(pg.img);
-      pg.text = tidyOcr(data.text);
+      const canvas = await prepImage(pg.img, rect);
+      const { data } = await w.recognize(canvas, {}, { text: true, blocks: true });
+      const text = cleanOcr(data);
+      if (text) pg.text = append && pg.text.trim() ? pg.text.trim() + '\n' + text : text;
       await saveBook();
-      if (statusEl) statusEl.textContent = pg.text ? '辨識完成，請檢查有沒有錯字' : '沒有找到英文字，可以自己打字';
+      if (statusEl) statusEl.textContent = text ? '辨識完成，請檢查有沒有錯字'
+        : '沒有找到清楚的英文字。試試「框選文字」只框英文的地方，或自己打字';
+      return !!text;
     } catch {
       if (statusEl) statusEl.textContent = '辨識失敗（可能沒有網路），可以自己打字';
+      return false;
     }
   }
+
+  /* ---------- 框選文字範圍 ---------- */
+
+  let crop = null;   // { pg, row, x0, y0, rect }
+  function openCrop(pg, row) {
+    stopAll();
+    crop = { pg, row, rect: null, drag: false };
+    $('#cropImg').src = blobUrl(pg.img);
+    $('#cropRect').hidden = true;
+    $('#cropStatus').textContent = '';
+    $('#cropModal').classList.add('show');
+  }
+  function closeCrop() { crop = null; $('#cropModal').classList.remove('show'); }
+  function cropPoint(e) {
+    const b = $('#cropImg').getBoundingClientRect();
+    return { x: Math.max(0, Math.min(b.width, e.clientX - b.left)), y: Math.max(0, Math.min(b.height, e.clientY - b.top)) };
+  }
+  function drawCropRect() {
+    const r = crop.rect, el = $('#cropRect');
+    el.hidden = !r;
+    if (r) Object.assign(el.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+  }
+  $('#cropWrap').addEventListener('pointerdown', e => {
+    if (!crop) return;
+    e.preventDefault();
+    $('#cropWrap').setPointerCapture(e.pointerId);
+    const p = cropPoint(e);
+    crop.drag = true; crop.x0 = p.x; crop.y0 = p.y;
+    crop.rect = { x: p.x, y: p.y, w: 0, h: 0 };
+    drawCropRect();
+  });
+  $('#cropWrap').addEventListener('pointermove', e => {
+    if (!crop || !crop.drag) return;
+    const p = cropPoint(e);
+    crop.rect = { x: Math.min(p.x, crop.x0), y: Math.min(p.y, crop.y0), w: Math.abs(p.x - crop.x0), h: Math.abs(p.y - crop.y0) };
+    drawCropRect();
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => $('#cropWrap').addEventListener(ev, () => { if (crop) crop.drag = false; }));
+
+  async function runCrop(append) {
+    if (!crop) return;
+    const r = crop.rect;
+    if (!r || r.w < 20 || r.h < 12) return toast('請先用手指框出英文字的範圍');
+    const img = $('#cropImg');
+    const k = img.naturalWidth / img.getBoundingClientRect().width;
+    const rect = { x: Math.round(r.x * k), y: Math.round(r.y * k), w: Math.round(r.w * k), h: Math.round(r.h * k) };
+    const { pg, row } = crop;
+    $('#cropOk').disabled = $('#cropAppend').disabled = true;
+    const ok = await ocrPage(pg, $('#cropStatus'), rect, append);
+    $('#cropOk').disabled = $('#cropAppend').disabled = false;
+    if (!ok) return;   // 留在框選畫面，讓使用者重新框
+    row.querySelector('textarea.en-text').value = pg.text;
+    row.querySelector('.status').textContent = '辨識完成，請檢查有沒有錯字';
+    renderSuggestions();
+    closeCrop();
+  }
+  $('#cropOk').onclick = () => runCrop(false);
+  $('#cropAppend').onclick = () => runCrop(true);
+  $('#cropCancel').onclick = closeCrop;
+
   $('#btnOcrAll').onclick = async () => {
     const rows = $$('#pageList .page-row');
     for (let i = 0; i < book.pages.length; i++) {
