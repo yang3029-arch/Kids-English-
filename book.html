@@ -107,6 +107,8 @@
     line-height: 1.6; border-top: 1.5px solid var(--line); user-select: text; -webkit-user-select: text;
   }
   .page-text:empty::before { content: "這一頁還沒有文字，可以到「編輯」拍照辨識或打字。"; font-family: inherit; font-size: 18px; font-weight: 500; color: var(--muted); }
+  .page-zh { padding: 0 24px 22px; font-size: calc(22px * var(--fs)); line-height: 1.7; color: #555; }
+  .page-zh .none { font-size: 17px; color: var(--muted); }
   .tok { border-radius: 6px; padding: 0 1px; cursor: pointer; transition: background .15s; }
   .tok.hl { background: var(--hl); color: var(--accent-ink); }
   .tok.known { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 5px; }
@@ -205,6 +207,7 @@
     background: var(--bg); color: var(--ink); user-select: text; -webkit-user-select: text;
   }
   .text-input { flex: 1; min-width: 140px; min-height: 54px; }
+  textarea.zh-text { font-family: inherit; font-weight: 500; min-height: 80px; margin-top: 8px; }
   textarea { width: 100%; min-height: 110px; resize: vertical; font-family: var(--en); font-weight: 600; line-height: 1.5; }
   .text-input:focus, textarea:focus { outline: none; border-color: var(--accent); background: var(--surface); }
   .page-row { display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); }
@@ -297,10 +300,12 @@
         <button class="chip" id="chipAuto">自動翻頁</button>
         <button class="chip" id="chipSlow">慢速</button>
         <button class="chip" id="chipVoice">用我的錄音</button>
+        <button class="chip" id="chipZh">中文翻譯</button>
       </div>
       <div class="card read-card">
         <img class="page-img" id="pageImg" alt="">
         <div class="page-text" id="pageText"></div>
+        <div class="page-zh" id="pageZh" hidden></div>
       </div>
       <div class="card-nav">
         <button class="nav-btn" id="pagePrev">← 上一頁</button>
@@ -409,10 +414,11 @@
       </div>
       <div class="card panel">
         <h3>頁面</h3>
-        <p class="note">拍下每一頁（可以一次選很多張）。按「辨識文字」自動抓出英文，再檢查修改。按「錄音」可以錄下自己唸這一頁的聲音。</p>
+        <p class="note">拍下每一頁（可以一次選很多張）。按「辨識文字」自動抓出英文，再檢查修改。按「錄音」可以錄下自己唸這一頁的聲音。中文翻譯可以自己打，或按「自動翻譯」（會把這頁的英文送到線上翻譯服務 MyMemory），翻好後可以再修改。</p>
         <div class="row" style="margin-bottom:16px">
           <button class="primary-btn" id="btnAddPages">＋ 加頁面</button>
           <button class="outline-btn" id="btnOcrAll">全部辨識文字</button>
+          <button class="outline-btn" id="btnTrAll">全部自動翻譯</button>
         </div>
         <input type="file" id="addPagesInput" accept="image/*" multiple hidden>
         <div id="pageList"></div>
@@ -734,7 +740,7 @@
     const list = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     let n = 0;
     for (const f of list) {
-      try { target.pages.push({ id: uid(), img: await shrinkImage(f), text: '', audio: null }); n++; }
+      try { target.pages.push({ id: uid(), img: await shrinkImage(f), text: '', zh: '', audio: null }); n++; }
       catch {}
     }
     return n;
@@ -791,6 +797,7 @@
 
   let autoTurn = ls.get('autoTurn', true);
   let useVoice = ls.get('useVoice', true);
+  let showZh = ls.get('showZh', false);
   let playing = false;
   let readToken = 0;      // 每次停止就加一，舊的播放回呼就不會再動作
   let autoTimer = null;
@@ -800,6 +807,21 @@
     $('#chipAuto').classList.toggle('on', autoTurn);
     $('#chipSlow').classList.toggle('on', slowRead);
     $('#chipVoice').classList.toggle('on', useVoice);
+    $('#chipZh').classList.toggle('on', showZh);
+  }
+  $('#chipZh').onclick = () => { showZh = !showZh; ls.set('showZh', showZh); renderReadChips(); renderPageZh(); };
+
+  function renderPageZh() {
+    const box = $('#pageZh');
+    const pg = book && book.pages[pageIdx];
+    box.hidden = !showZh || !pg;
+    if (box.hidden) return;
+    box.innerHTML = '';
+    if (pg.zh && pg.zh.trim()) {
+      pg.zh.split('\n').forEach((line, i) => { if (i) box.appendChild(document.createElement('br')); box.appendChild(document.createTextNode(line)); });
+    } else {
+      box.innerHTML = '<span class="none">這一頁還沒有中文翻譯，可以到「編輯」按「自動翻譯」或自己打。</span>';
+    }
   }
   $('#chipAuto').onclick = () => { autoTurn = !autoTurn; ls.set('autoTurn', autoTurn); renderReadChips(); };
   $('#chipSlow').onclick = () => { slowRead = !slowRead; ls.set('slowRead', slowRead); renderReadChips(); };
@@ -808,13 +830,14 @@
   function renderPage() {
     renderReadChips();
     const pages = book.pages;
-    if (!pages.length) { $('#pageImg').removeAttribute('src'); $('#pageText').textContent = ''; $('#pagePos').textContent = '0 / 0'; return; }
+    if (!pages.length) { $('#pageImg').removeAttribute('src'); $('#pageText').textContent = ''; $('#pagePos').textContent = '0 / 0'; $('#pageZh').hidden = true; return; }
     pageIdx = Math.max(0, Math.min(pageIdx, pages.length - 1));
     const pg = pages[pageIdx];
     $('#pageImg').src = blobUrl(pg.img);
     $('#pagePos').textContent = `${pageIdx + 1} / ${pages.length}`;
     $('#pagePrev').disabled = pageIdx === 0;
     $('#pageNext').disabled = pageIdx === pages.length - 1;
+    renderPageZh();
     $('#recNote').textContent = pg.audio ? (useVoice ? '這一頁會播放你的錄音' : '這一頁有錄音（目前用機器朗讀）') : '';
 
     // 把文字切成單字，點單字可以聽發音、加入單字卡
@@ -1284,9 +1307,11 @@
         <img class="thumb" alt="">
         <div>
           <div class="num">第 ${i + 1} 頁</div>
-          <textarea placeholder="這一頁的英文（可以按「辨識文字」自動填入）"></textarea>
+          <textarea class="en-text" placeholder="這一頁的英文（可以按「辨識文字」自動填入）"></textarea>
+          <textarea class="zh-text" placeholder="中文翻譯（可不填，或按「自動翻譯」）"></textarea>
           <div class="acts">
             <button class="outline-btn small" data-act="ocr">辨識文字</button>
+            <button class="outline-btn small" data-act="tr">自動翻譯</button>
             <button class="outline-btn small rec" data-act="rec">● 錄音</button>
             <button class="outline-btn small plain" data-act="play" ${pg.audio ? '' : 'hidden'}>▶ 聽錄音</button>
             <button class="outline-btn small plain" data-act="unrec" ${pg.audio ? '' : 'hidden'}>刪除錄音</button>
@@ -1298,8 +1323,15 @@
         </div>`;
       row.querySelector('.thumb').src = blobUrl(pg.img);
       row.querySelector('.thumb').onclick = () => { pageIdx = i; setTab('read'); };
-      const ta = row.querySelector('textarea');
+      const ta = row.querySelector('textarea.en-text');
       ta.value = pg.text;
+      const zt = row.querySelector('textarea.zh-text');
+      zt.value = pg.zh || '';
+      zt.addEventListener('input', () => {
+        pg.zh = zt.value;
+        clearTimeout(saveTimers[pg.id + 'zh']);
+        saveTimers[pg.id + 'zh'] = setTimeout(saveBook, 600);
+      });
       ta.addEventListener('input', () => {
         pg.text = ta.value;
         clearTimeout(saveTimers[pg.id]);
@@ -1318,8 +1350,13 @@
     const status = row.querySelector('.status');
     if (act === 'ocr') {
       await ocrPage(pg, status);
-      row.querySelector('textarea').value = pg.text;
+      row.querySelector('textarea.en-text').value = pg.text;
       renderSuggestions();
+    }
+    if (act === 'tr') {
+      if (pg.zh && pg.zh.trim() && !(await confirmBox('這一頁已經有中文翻譯，要重新自動翻譯嗎？'))) return;
+      await translatePage(pg, status);
+      row.querySelector('textarea.zh-text').value = pg.zh || '';
     }
     if (act === 'rec') {
       if (recorder) { if (recPage === pg) stopRecording(); else toast('請先停止另一頁的錄音'); }
@@ -1417,10 +1454,69 @@
       if (pg.text.trim()) continue;
       const row = rows[i];
       await ocrPage(pg, row && row.querySelector('.status'));
-      if (row) row.querySelector('textarea').value = pg.text;
+      if (row) row.querySelector('textarea.en-text').value = pg.text;
     }
     renderSuggestions();
     toast('全部辨識完成');
+  };
+
+  /* ---------- 自動翻譯（MyMemory 免費翻譯服務） ---------- */
+
+  // 一次最多送約 450 個字元，所以先按句子切成小段
+  function splitForTranslate(text) {
+    const parts = [];
+    text.split('\n').forEach(line => {
+      const sentences = line.match(/[^.!?]+[.!?]*["”’']?\s*/g) || [];
+      let buf = '';
+      sentences.forEach(s => {
+        if ((buf + s).length > 450 && buf) { parts.push({ text: buf, br: false }); buf = ''; }
+        buf += s;
+      });
+      parts.push({ text: buf, br: true });
+    });
+    return parts;
+  }
+
+  async function translateText(text) {
+    let out = '';
+    for (const part of splitForTranslate(text)) {
+      if (part.text.trim()) {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(part.text.trim())}&langpair=en|zh-TW`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok || data.responseStatus !== 200 || !data.responseData) throw new Error(data.responseDetails || 'translate');
+        out += data.responseData.translatedText;
+      }
+      if (part.br) out += '\n';
+    }
+    return out.replace(/\n+$/, '');
+  }
+
+  async function translatePage(pg, statusEl) {
+    if (!pg.text.trim()) { if (statusEl) statusEl.textContent = '這一頁還沒有英文，先辨識文字或打字'; return false; }
+    if (statusEl) statusEl.textContent = '翻譯中…';
+    try {
+      pg.zh = await translateText(pg.text);
+      await saveBook();
+      if (statusEl) statusEl.textContent = '翻譯完成，可以再修改';
+      return true;
+    } catch {
+      if (statusEl) statusEl.textContent = '翻譯失敗（可能沒有網路或今天的免費次數用完了），可以自己打';
+      return false;
+    }
+  }
+
+  $('#btnTrAll').onclick = async () => {
+    const rows = $$('#pageList .page-row');
+    let n = 0;
+    for (let i = 0; i < book.pages.length; i++) {
+      const pg = book.pages[i];
+      if ((pg.zh && pg.zh.trim()) || !pg.text.trim()) continue;
+      const row = rows[i];
+      if (await translatePage(pg, row && row.querySelector('.status'))) n++;
+      if (row) row.querySelector('textarea.zh-text').value = pg.zh || '';
+    }
+    toast(n ? `翻譯了 ${n} 頁` : '沒有需要翻譯的頁面');
   };
 
   /* ---------- 單字 ---------- */
